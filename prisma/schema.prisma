@@ -1,0 +1,154 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id            Int       @id @default(autoincrement())
+  email         String    @unique
+  password      String
+  name          String
+  role          Role
+  pantryId      Int?     // Add this field for the relation
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  
+  // Add opposite relations
+  assignedTasks   Task[]
+  preparedMeals   Diet[]     @relation("PreparedBy")
+  deliveredMeals  Diet[]     @relation("DeliveredBy")
+  pantry          Pantry?    @relation("PantryStaff", fields: [pantryId], references: [id])
+}
+
+enum Role {
+  MANAGER
+  STAFF
+  DELIVERY
+}
+
+model Patient {
+  id              Int       @id @default(autoincrement())
+  name            String
+  diseases        String[]
+  allergies       String[]
+  roomnumber      Int
+  bednumber       Int
+  floornumber     Int
+  age             Int
+  gender          Gender  //male, female
+  phone           String    // Changed to String for proper phone format
+  emergencyphone  String    // Changed to String for proper phone format
+  status          Status    @default(ACTIVE)  // Add patient status
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  
+  dietCharts     DietChart[]
+}
+
+model DietChart {
+  id             Int       @id @default(autoincrement())
+  patientId      Int
+  startDate      DateTime  @default(now())  // Add start date
+  endDate        DateTime? // Add optional end date
+  status         Status    @default(ACTIVE)  // Add chart status
+  dietItems      Diet[]
+  patient        Patient   @relation(fields: [patientId], references: [id])
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+}
+
+model Diet {
+  id             Int       @id @default(autoincrement())
+  patientId      Int      
+  mealtime       MealTime
+  ingredients    String[]  // Changed to array for multiple ingredients
+  instructions   String[]
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @default(now())
+  dietChartId    Int
+  status         Status    @default(PENDING)  // Add meal status
+  assignedTo     Int?      // Staff assigned to prepare
+  deliveredBy    Int?      // Staff who delivered
+  deliveredAt    DateTime? // Delivery timestamp
+  notes          String?   // Add notes field for preparation instructions
+  assignedAt     DateTime? // When was the delivery person assigned
+  preparedAt     DateTime? // When was the meal prepared
+  deliveryNotes    String?    // Add delivery-specific notes
+  deliveryStartedAt DateTime? // When delivery person started the delivery
+  deliveryCompletedAt DateTime? // When delivery was completed
+  
+  // Add relations with proper names
+  dietChart      DietChart  @relation(fields: [dietChartId], references: [id])
+  preparedBy     User?      @relation("PreparedBy", fields: [assignedTo], references: [id])
+  deliveryStaff  User?      @relation("DeliveredBy", fields: [deliveredBy], references: [id])
+  tasks          Task[]     // Add opposite relation for Task
+}
+
+enum MealTime {
+  MORNING
+  EVENING
+  NIGHT
+}
+
+enum Gender {
+  MALE
+  FEMALE
+}
+
+model Pantry {
+  id          Int       @id @default(autoincrement())
+  name        String
+  phone       String    // Changed to String
+  address     String
+  staff       User[]    @relation("PantryStaff")
+  tasks       Task[]    // Add tasks relation
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+}
+
+model Task {
+  id          Int       @id @default(autoincrement())
+  dietId      Int       // Related diet/meal
+  assignedTo  Int       // Assigned staff member
+  pantryId    Int       // Related pantry
+  status      TaskStatus @default(PENDING)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  diet        Diet      @relation(fields: [dietId], references: [id])
+  staff       User      @relation(fields: [assignedTo], references: [id])
+  pantry      Pantry    @relation(fields: [pantryId], references: [id])
+}
+
+enum Status {
+  ACTIVE
+  INACTIVE
+  PENDING
+  COMPLETED
+  IN_PREPARATION
+  READY_FOR_DELIVERY
+  IN_DELIVERY
+  DELIVERED
+  ACCEPTED_BY_DELIVERY
+  OUT_FOR_DELIVERY
+  DELIVERY_COMPLETED
+  DELIVERY_FAILED
+}
+
+enum TaskStatus {
+  PENDING
+  IN_PREPARATION
+  PREPARED
+  IN_DELIVERY
+  DELIVERED
+  CANCELLED
+}
